@@ -41,9 +41,6 @@ class yoyo
             this.LoadPageIntoDOM(pages[i].path);
             }
         }
-
-      const textnode = document.createTextNode("--- Loading Content ---");
-      this.yoyoRoot.appendChild(textnode);
       }
     
     BuildVirtualDom(node)
