@@ -2,7 +2,9 @@ Another javascript framework to join the sea of javascript frameworks.
 
 You might be asking, why yoyo. If you're doing a large project with lots of requirements, I'd actually recommend you steer clear and use a more feature rich framework that's been battle tested.
 
-If you just want to add some reactivity and a little routing to a page without having to deal with loads of dependancies and the very messy Javascript dev enviroment, then this might be the right choice for you.
+If you just want to add some reactivity and a little routing to a page without having to deal with loads of dependancies, npm, yarn or any of the rest of the very messy Javascript dev ecosystem, then this might be the right choice for you.
+
+Also if you want to learn about how those larger frameworks work under the hood (at least in principle), this isn't a bad place to start in my opinion. This is far easier to read and debug than a larger framework, and has quite a few of the features (routing, reactivity, etc.) that the larger ones have.
 
 You'll have to do quite a bit more work to get this running than you might be used to. This is meant to be very lightweight, which is part of the reason that the only dependancy is a single js file. The goal here is to try and return to simplicity.
 
