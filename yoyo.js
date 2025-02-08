@@ -8,14 +8,17 @@ class yoyo
     constructor()
       {
         this.dom = {};
+        this.components = {};
         this.currentPage = {};
         this.pageData = {};
         this.state = {};
         this.bindings = {};
         this.yoyoRoot = document.getElementById("yoyoContent");
+        this.currentPage = "";
+        this.RoutingParent = null;
       }
 
-    start (pages, state, currentPageIndex = 0)
+    start (pages, components, state, currentPageIndex = 0)
       {
       console.log("Starting Yoyo");
 
@@ -24,6 +27,33 @@ class yoyo
         this.UpdateState(state[i].key, state[i].value);
         }
 
+      this.ConfigureComponents(components);
+      this.ConfigurePages(pages,currentPageIndex);
+
+      this.BuildApplication();
+      this.LoadPageIntoDOM(this.currentPage);
+      }
+
+    ConfigureComponents(components)
+      {
+      for(let i = 0; i < components.length; i++)
+        {
+        this.components[components[i].name] = {}
+        }
+
+      for(let i = 0; i < components.length; i++)
+        {
+        this.components[components[i].name] = 
+          {
+            raw : components[i].data,
+            virtualDom : this.BuildVirtualDom(document.createRange().createContextualFragment(components[i].data),
+            components[i].name)
+          }
+        }
+      }
+
+    ConfigurePages(pages, currentPageIndex)
+      {
       for(let i = 0; i < pages.length; i++)
         {
         const template = document.createElement('template');
@@ -33,23 +63,78 @@ class yoyo
           { 
           pageName : pages[i].path, 
           raw : pages[i].data, 
-          virtualDom : this.BuildVirtualDom(document.createRange().createContextualFragment(pages[i].data))
+          virtualDom : this.BuildVirtualDom(document.createRange().createContextualFragment(pages[i].data),
+          pages[i].path)
           };
 
-          if(i == currentPageIndex)
-            {
-            this.LoadPageIntoDOM(pages[i].path);
-            }
+        if(i == currentPageIndex)
+          {
+          this.currentPage = pages[i].path;
+          }
         }
       }
+
+    BuildApplication()
+      {
+      for(let key in this.state)
+        {
+        this.bindings[key] = [];
+        }
+
+      this.yoyoRoot.childNodes.forEach(child => 
+        {
+        if(child.nodeValue != '\n' && this.components[child.nodeName.toLowerCase()])
+          {
+          let yoyoFragment =
+              this.LoadElementIntoDOM(this.components[child.nodeName.toLowerCase()].virtualDom.children[0]);
+          this.yoyoRoot.replaceChild(yoyoFragment, child);
+          }
+        else if(child.nodeName.toLowerCase() == "yoyo")
+          {
+          this.RoutingParent = document.createElement('div');
+          this.RoutingParent.setAttribute("id", "yoyo-routing");
+
+          this.pageData[this.currentPage].virtualDom.children[0];
+
+          this.yoyoRoot.replaceChild(this.RoutingParent, child);
+          }
+        });
+
+      let x = new MutationObserver((e) => 
+        {
+        if (e[0].removedNodes.length > 0)  
+          {
+          for(let key in this.bindings)
+            {
+            for(let i = 0; i < this.bindings[key].length; i++)
+              {
+              if(this.bindings[key][i].element.isConnected == false)
+                {
+                this.bindings[key].splice(i,1); 
+                }
+              }
+            }
+          };
+        });
+
+      x.observe(this.yoyoRoot, { subtree : true, childList: true });
+      }
+
+    LoadPageIntoDOM(path)
+      {
+      let pageToLoad = this.pageData[path];
+      let yoyoPage = this.LoadElementIntoDOM(pageToLoad.virtualDom.children[0]);
+      this.RoutingParent.replaceChildren(yoyoPage);
+      }
     
-    BuildVirtualDom(node)
+    BuildVirtualDom(node, path)
       {
       let virtualNode = 
         {
         type: node.nodeType === 3 ? "TEXT" : node.tagName,
         children : [],
-        targetNode : node
+        targetNode : node,
+        path : path
         }
 
       if(node.nodeType === 3)
@@ -68,16 +153,27 @@ class yoyo
         }
       else if(node.getAttribute)
         {
-        virtualNode.bindings = [];
-
         let yoyoBinding = node.getAttribute("yo-yoBind");
+        let yoyoClick = node.getAttribute("yo-onClick");
+
         if(yoyoBinding)
           {
           node.removeAttribute("yo-yoBind");
-          
+
           let parsingDetails = this.ParseBindingJavascript(yoyoBinding);
           virtualNode.binding = 
               {
+              binding : this.CreateBinding(parsingDetails.code),
+              bindingKeys : parsingDetails.bindings
+              };
+          }
+        if(yoyoClick)
+          {
+          node.removeAttribute("yo-onClick");
+          let parsingDetails = this.ParseBindingJavascript(yoyoClick, false);
+          virtualNode.binding = 
+              {
+              onClickBinding : true,
               binding : this.CreateBinding(parsingDetails.code),
               bindingKeys : parsingDetails.bindings
               };
@@ -88,7 +184,7 @@ class yoyo
         {
         if(child.nodeValue != '\n')
           {
-          virtualNode.children.push(this.BuildVirtualDom(child));
+          virtualNode.children.push(this.BuildVirtualDom(child, path));
           }
         });
 
@@ -119,7 +215,6 @@ class yoyo
         finalCodeString += "\""
         }
 
-
       if(codeStart == 0)
         {
         finalCodeString = finalCodeString.replace("{{", "String(");
@@ -140,44 +235,31 @@ class yoyo
     ParseBindingJavascript(javaScript)
       {
       let finalCode = javaScript;
-      let bindings = [];
+      let localBindingKeys = [];
+
       for(let key in this.state) 
         {
         if(finalCode.includes(key))
           {
           let replaceText = "this.state." + key + ".value";
           finalCode = finalCode.replaceAll(key,replaceText);
-          bindings.push(key);
+          localBindingKeys.push(key);
           }
         }
-      return { code : finalCode, bindings : bindings };
+      return { code : finalCode, bindings : localBindingKeys };
       }
 
-    CreateBinding(value)
+    CreateBinding(value, requireReturn = true)
       {
       value = value.replaceAll("{{", "");
       value = value.replaceAll("}}", "");
 
-      if(!value.includes("return"))
+      if(!value.includes("return") && requireReturn)
         {
         value = "return " + value;
         }
 
       return new Function(value).bind(this);
-      }
-
-    
-    LoadPageIntoDOM(path)
-      {
-      for(let key in this.state)
-        {
-        this.bindings[key] = [];
-        }
-
-      let pageToLoad = this.pageData[path];
-      let yoyoFragment = this.LoadElementIntoDOM(pageToLoad.virtualDom.children[0]);
-
-      this.yoyoRoot.replaceChildren(yoyoFragment);
       }
 
     LoadElementIntoDOM(element)
@@ -189,7 +271,8 @@ class yoyo
           {
           element : newNode,
           vElement : element,
-          bindingFunction : element.binding.binding
+          bindingFunction : element.binding.binding,
+          onClickBinding : element.binding.onClickBinding || false 
           }
 
           this.ApplyBindings(newBinding);
@@ -213,6 +296,12 @@ class yoyo
 
     ApplyBindings(binding)
       {
+      if(binding.onClickBinding)
+        {
+        binding.element.onclick = binding.bindingFunction;
+        return;
+        }
+
       let bindingResult = binding.bindingFunction();
       if(binding.vElement.type == "TEXT")
         {
@@ -222,6 +311,7 @@ class yoyo
         {
         binding.element.innerHTML = bindingResult;
         }
+
       }
 
     ReadTextElementBindings(element, node)
