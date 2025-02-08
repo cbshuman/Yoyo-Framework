@@ -193,15 +193,15 @@ class yoyo
 
     ParseTextBindingJavascript(input, virtualNode)
       {
+      console.log(input);
       input = input.trim();
       let regexDetails = [...input.matchAll(reg)];
       virtualNode.bindings = [];
 
       let finalCodeString = input;
 
-      let parsedData = this.ParseBindingJavascript(finalCodeString);
 
-      finalCodeString = parsedData.code;
+      //finalCodeString = parsedData.code;
 
       let codeStart = input.indexOf("{{");
       let codeEnd = input.lastIndexOf("}}");
@@ -229,7 +229,9 @@ class yoyo
       finalCodeString = finalCodeString.replaceAll("}} {{", ") + \" \" + String(");
       finalCodeString = finalCodeString.replaceAll("}}", ") + \"");
 
-      return { code : this.ParseBindingJavascript(finalCodeString).code, bindings : parsedData.bindings }
+      let parsedData = this.ParseBindingJavascript(finalCodeString);
+
+      return { code : parsedData.code, bindings : parsedData.bindings }
       }
 
     ParseBindingJavascript(javaScript)
@@ -259,6 +261,7 @@ class yoyo
         value = "return " + value;
         }
 
+      console.log(value);
       return new Function(value).bind(this);
       }
 
