@@ -155,6 +155,7 @@ class yoyo
         {
         let yoyoBinding = node.getAttribute("yo-yoBind");
         let yoyoClick = node.getAttribute("yo-onClick");
+        let yoyoChange = node.getAttribute("yo-onChange");
 
         if(yoyoBinding)
           {
@@ -171,11 +172,25 @@ class yoyo
           {
           node.removeAttribute("yo-onClick");
           let parsingDetails = this.ParseBindingJavascript(yoyoClick, false);
+          
           virtualNode.binding = 
               {
-              onClickBinding : true,
+              triggerBinding : "click",
               binding : this.CreateBinding(parsingDetails.code),
               bindingKeys : parsingDetails.bindings
+              };
+          }
+        if(yoyoChange)
+          {
+          console.log(yoyoChange);
+          node.removeAttribute("yo-onChange");
+          //let parsingDetails = this.ParseBindingJavascript(yogoChange, false);
+          
+          virtualNode.binding = 
+              {
+              triggerBinding : "change",
+              binding : (x) => { this.UpdateState(yoyoChange, x.target.value) },
+              bindingKeys : [ yoyoChange ] 
               };
           }
         }
@@ -193,16 +208,11 @@ class yoyo
 
     ParseTextBindingJavascript(input, virtualNode)
       {
-      console.log(input);
       input = input.trim();
       let regexDetails = [...input.matchAll(reg)];
       virtualNode.bindings = [];
 
       let finalCodeString = input;
-
-
-      //finalCodeString = parsedData.code;
-
       let codeStart = input.indexOf("{{");
       let codeEnd = input.lastIndexOf("}}");
      
@@ -231,13 +241,18 @@ class yoyo
 
       let parsedData = this.ParseBindingJavascript(finalCodeString);
 
-      return { code : parsedData.code, bindings : parsedData.bindings }
+      return { code : this.ParseBindingJavascript(finalCodeString).code, bindings : parsedData.bindings }
       }
 
     ParseBindingJavascript(javaScript)
       {
       let finalCode = javaScript;
       let localBindingKeys = [];
+
+      if(finalCode[0] == '@')
+        {
+        return { code : finalCode.replace('@', ''), bindings : localBindingKeys };
+        }
 
       for(let key in this.state) 
         {
@@ -261,7 +276,6 @@ class yoyo
         value = "return " + value;
         }
 
-      console.log(value);
       return new Function(value).bind(this);
       }
 
@@ -275,10 +289,11 @@ class yoyo
           element : newNode,
           vElement : element,
           bindingFunction : element.binding.binding,
-          onClickBinding : element.binding.onClickBinding || false 
+          triggerBinding : element.binding.triggerBinding || false 
           }
 
           this.ApplyBindings(newBinding);
+          console.log(element.binding.bindingKeys);
           for(let x = 0; x < element.binding.bindingKeys.length; x++)
             {
             this.bindings[element.binding.bindingKeys[x]].push(newBinding);
@@ -299,9 +314,19 @@ class yoyo
 
     ApplyBindings(binding)
       {
-      if(binding.onClickBinding)
+      if(binding.triggerBinding)
         {
-        binding.element.onclick = binding.bindingFunction;
+        switch(binding.triggerBinding)
+          {
+          case "click":
+            binding.element.onclick = binding.bindingFunction;
+            break;
+          case "change":
+            console.log(this.state[binding.vElement.binding.bindingKeys[0]]);
+            binding.element.onchange = binding.bindingFunction;
+            binding.element.value = String(this.state[binding.vElement.binding.bindingKeys[0]].value);
+            break;
+          }
         return;
         }
 
@@ -314,7 +339,6 @@ class yoyo
         {
         binding.element.innerHTML = bindingResult;
         }
-
       }
 
     ReadTextElementBindings(element, node)
@@ -346,6 +370,7 @@ class yoyo
 
     UpdateState(targetState, newValue)
       {
+      console.log(targetState, newValue);
       if(!this.state[targetState])
         {
         this.state[targetState] = 
