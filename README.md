@@ -92,9 +92,27 @@ let GetYoyoPages = () =>
      });
     }
   }
+
+```
+Your index.html or home.html, or whatever page you are using to serve the web page should more or less look like this:
+```
+<html>
+  <head>
+    <title> Expansia Server v0.0.1</title>
+    <script type = "module" text ="type/javascript" src="/mainScript.js"></script>
+    <link rel="stylesheet" type="text/css" href="/main.css" >
+  </head>
+  <body>
+    <div id = "yoyoContent"> 
+      <Header></Header> 
+      <yoyo></yoyo>
+      <ServerChat><Serverchat/>
+    </div>
+  </body>
+</html>
 ```
 
-Here's an example of a yoyo page:
+Here's an example of a yoyo page or component (both essentially are the same):
 ```
 <div> Server Name : {{serverName}} {{serverName}}
   <p> Current ClientId : {{clientUid}} </p>
@@ -120,22 +138,4 @@ Here's an example of a yoyo page:
     <p> {{(5 + 5)}} {{6}} {{game1 + String(8)}} </p>
 </div>
 ```
-
-Your index.html or home.html, or whatever page you are using to serve the web page should more or less look like this:
-```
-<html>
-  <head>
-    <title> Expansia Server v0.0.1</title>
-    <script type = "module" text ="type/javascript" src="/mainScript.js"></script>
-    <link rel="stylesheet" type="text/css" href="/main.css" >
-  </head>
-  <body>
-    <div id = "yoyoContent"> 
-      <Header></Header> 
-      <yoyo></yoyo>
-      <ServerChat><Serverchat/>
-    </div>
-  </body>
-</html>
-```
-If I get some time, I might add some more documentation on how this all should be set up.
+If I get some time, I might add some more documentation on how this all should be set up. Right now I'm thinking about working on embeded components.
