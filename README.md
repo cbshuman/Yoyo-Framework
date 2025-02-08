@@ -10,35 +10,88 @@ You'll have to do quite a bit more work to get this running than you might be us
 
 Here's an example of how to get started with yoyo: (you can by and large ignore the imports, they're other custom libraries I'm writing. I might include them in this repo as they do provide some nice utility)
 ```
+//mainScript.js
+
 import yoyo from "./js/YoyoFramework/yoyo.js";
 import requests from "./js/ServerCommunication/request.js";
 import websocket from "./js/ServerCommunication/websockets.js";
-import webSocketReader from "./js/WebSocketHandle/webSocketReader.js";
+import webSocketReader from "./js/WebSocketHandle/WebSocketReader.js";
+import webSocketWriter from "./js/WebSocketHandle/WebSocketWriter.js";
 
 let yoyoApp = new yoyo();
-let socketReader = new webSocketReader(yoyoApp);
-socketReader.yoyo = yoyoApp;
+let yoyoPages = 
+  [
+    { path: "YoyoData/YoyoPages/home.html", yoyoPath : "home" },
+    { path: "YoyoData/YoyoPages/dataEditor.html", yoyoPath : "dataEditor" }
+  ];
+
+let yoyoComponents = 
+  [
+    { path: "YoyoData/YoyoComponents/header.html", name : "header" },
+    { path: "YoyoData/YoyoComponents/chat.html", name : "serverchat" },
+  ];
+
+
+let socketWriter;
+let socketReader = new webSocketReader(yoyoApp, () => 
+  {
+  socketWriter.SetClientUid(yoyoApp.GetStateValue("clientUid"));
+  socketWriter.RequestCurrentGameList();
+  socketWriter.RequestCurrentPlayerList();
+  });
+
+console.log(yoyoApp);
 
 let defaultState = 
   [
     { key: 'clientUid', value: null },
     { key: 'serverName', value: "Christian Minecraft Server"},
-    { key: 'playerNumber', value: 0 },
-    { key: 'game1', value: "Billy's Game"},
-    { key: 'chatMessages', value: [] }
+    { key: 'playerList', value: [] },
+    { key: 'gameList', value: [] },
+    { key: 'chatMessages', value: new Array( 10 ) }
   ]
+
+socketReader.yoyo = yoyoApp;
 
 requests.serverAddress = "/"
 
-requests.ServerGET("YoyoPages/home.html", (request) => 
-  {
-  let pages = [{ path: "YoyoPages/home.html", data: request}];
+let pages = [];
+let components = [];
 
-  console.log(pages);
-  yoyoApp.start(pages,defaultState);
-  
-  websocket.OpenWebSocket((response) => socketReader.HandleWebSocketResponse(response));
-  });
+for(let i = 0; i < yoyoComponents.length; i++)
+  {
+  requests.ServerGET(yoyoComponents[i].path, (request) => 
+    {
+    components.push({ name: yoyoComponents[i].name, data: request});
+
+    if(i == yoyoComponents.length -1)
+      {
+      GetYoyoPages();
+      }
+    });
+  }
+
+let GetYoyoPages = () => 
+  {
+  for (let i = 0; i < yoyoPages.length; i++)
+   {
+   requests.ServerGET(yoyoPages[i].path, (request) => 
+      {
+      pages.push({ path: yoyoPages[i].yoyoPath, data: request});
+
+      if(i == yoyoPages.length -1)
+        {
+        yoyoApp.start(pages,components, defaultState);
+        websocket.OpenWebSocket( (response, writer) => 
+          {
+          socketReader.HandleWebSocketResponse(response);
+          socketWriter = new webSocketWriter(writer);
+          yoyoApp.UpdateState("socketWriter", socketWriter);
+          });
+        }
+     });
+    }
+  }
 ```
 
 Here's an example of a yoyo page:
@@ -67,3 +120,22 @@ Here's an example of a yoyo page:
     <p> {{(5 + 5)}} {{6}} {{game1 + String(8)}} </p>
 </div>
 ```
+
+Your index.html or home.html, or whatever page you are using to serve the web page should more or less look like this:
+```
+<html>
+  <head>
+    <title> Expansia Server v0.0.1</title>
+    <script type = "module" text ="type/javascript" src="/mainScript.js"></script>
+    <link rel="stylesheet" type="text/css" href="/main.css" >
+  </head>
+  <body>
+    <div id = "yoyoContent"> 
+      <Header></Header> 
+      <yoyo></yoyo>
+      <ServerChat><Serverchat/>
+    </div>
+  </body>
+</html>
+```
+If I get some time, I might add some more documentation on how this all should be set up.
