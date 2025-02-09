@@ -179,14 +179,14 @@ class yoyo
         if(yoyoClick)
           {
           node.removeAttribute("yo-onClick");
-          let parsingDetails = this.ParseBindingJavascript(yoyoClick, false);
+          let parsingDetails = this.ParseBindingJavascript(yoyoClick);
           
           console.log(parsingDetails);
 
           virtualNode.binding = 
               {
               triggerBinding : "click",
-              binding : this.CreateBinding(parsingDetails.code),
+              binding : this.CreateBinding(parsingDetails.code,false),
               bindingKeys : parsingDetails.bindings
               };
           }
