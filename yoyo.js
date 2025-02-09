@@ -181,8 +181,6 @@ class yoyo
           node.removeAttribute("yo-onClick");
           let parsingDetails = this.ParseBindingJavascript(yoyoClick);
           
-          console.log(parsingDetails);
-
           virtualNode.binding = 
               {
               triggerBinding : "click",
@@ -346,7 +344,6 @@ class yoyo
         switch(binding.triggerBinding)
           {
           case "click":
-            console.log(binding);
             binding.element.onclick = binding.bindingFunction;
             break;
           case "change":
@@ -387,7 +384,6 @@ class yoyo
 
     UpdateState(targetState, newValue)
       {
-      //console.log(targetState);
       let valuePath = targetState.split(".");
 
       if(valuePath.length == 1)
@@ -410,12 +406,17 @@ class yoyo
         }
       let updateState = this.state[valuePath[0]];
       let startState = this.state[valuePath[0]];
-      
+     
       for(let i = 1; i < valuePath.length; i++)
         {
-        if(!updateState[valuePath[i]])
+        if(!updateState[valuePath[i]] == undefined)
           {
           updateState[valuePath[i]] = {};
+          }
+        if(valuePath.length-1 == i)
+          {
+          updateState[valuePath[i]] = newValue;
+          break;
           }
         updateState = updateState[valuePath[i]];
         }
