@@ -4,7 +4,7 @@ const regex = /{{([\s\S]*?)}}/g;
 
 class yoyo 
   {
-    constructor()
+    constructor(state, actions)
       {
         this.components = {};
         this.currentPage = {};
@@ -14,16 +14,24 @@ class yoyo
         this.yoyoRoot = document.getElementById("yoyoContent");
         this.currentPage = "";
         this.RoutingParent = null;
-      }
-
-    start (pages, components, state, currentPage = '')
-      {
-      console.log("Starting Yoyo");
       
       for(let i = 0; i < state.length; i++)
         {
         this.UpdateState(state[i].key, state[i].value);
         }
+
+      this.actions = {};
+
+      for(let key in actions)
+        {
+        this.actions[key] = actions[key].bind(this);
+        }
+      }
+
+    start (pages, components,  currentPage = '')
+      {
+      console.log("Starting Yoyo");
+
 
       this.ConfigureComponents(components);
       this.ConfigurePages(pages);
@@ -57,10 +65,25 @@ class yoyo
         {
         const template = document.createElement('template');
         template.innerHTML = pages[i].data;
- 
+
+        let setTriggers = {};
+        let triggers = pages[i].triggers;
+        
+        for(let x = 0; x < triggers.length; x++)
+          {
+          if(!setTriggers[x])
+            {
+            setTriggers[triggers[x].path] = [];
+            }
+
+          let trigger = triggers[x].trigger.bind(this);
+          setTriggers[triggers[x].path].push(triggers[x].trigger);
+          }
+
         this.pageData[pages[i].path] = 
-          { 
+          {
           pageName : pages[i].path, 
+          triggers : setTriggers,
           raw : pages[i].data, 
           virtualDom : this.BuildVirtualDom(document.createRange().createContextualFragment(pages[i].data),
           pages[i].path)
@@ -144,16 +167,20 @@ class yoyo
         path : path
         }
 
+      let bindings = [];
+
       if(node.nodeType === 3)
         {
         if(node.nodeValue.includes("{{") && node.nodeValue.includes("}}"))
           {
           let parsingDetails = this.ParseTextBindingJavascript(node.nodeValue, virtualNode);
-          virtualNode.binding = 
+          
+          bindings.push( 
             {
             binding : this.CreateBinding(parsingDetails.code),
             bindingKeys : parsingDetails.bindings
-            }
+            });
+
           }
         virtualNode.displayText = node.nodeValue;
         virtualNode.text = node.nodeValue;
@@ -170,48 +197,50 @@ class yoyo
           node.removeAttribute("yo-yoBind");
 
           let parsingDetails = this.ParseBindingJavascript(yoyoBinding);
-          virtualNode.binding = 
+          bindings.push( 
               {
               binding : this.CreateBinding(parsingDetails.code),
               bindingKeys : parsingDetails.bindings
-              };
+              });
           }
         if(yoyoClick)
           {
           node.removeAttribute("yo-onClick");
           let parsingDetails = this.ParseBindingJavascript(yoyoClick);
           
-          virtualNode.binding = 
+          bindings.push( 
               {
               triggerBinding : "click",
               binding : this.CreateBinding(parsingDetails.code,false),
               bindingKeys : parsingDetails.bindings
-              };
+              });
           }
         if(yoyoChange)
           {
           node.removeAttribute("yo-onChange");
-          virtualNode.binding = 
+          bindings.push( 
               {
               triggerBinding : "change",
               binding : (x) => { this.UpdateState(yoyoChange, x.target.value) },
               bindingKeys : [ yoyoChange.split('.')[0] ],
               bindingPath : yoyoChange
-              };
+              });
           }
         if(yoyoIf)
           {
           node.removeAttribute("yo-if");
           let parsingDetails = this.ParseBindingJavascript(yoyoIf, false);
           
-          virtualNode.binding = 
+          bindings.push( 
               {
               triggerBinding : "if",
               binding : this.CreateBinding(parsingDetails.code),
               bindingKeys : parsingDetails.bindings
-              };
+              });
           }
         }
+
+      virtualNode.bindings = bindings.length > 0 ? bindings : null;
 
       node.childNodes.forEach(child => 
         {
@@ -272,20 +301,16 @@ class yoyo
         return { code : finalCode.replace('@', ''), bindings : localBindingKeys };
         }
 
-      for(let key in this.state) 
+      for (let key of Object.keys(this.state).sort((a, b) => b.length - a.length))
         {
-        if(finalCode.includes(key))
+        let regex = new RegExp(`\\b${key}\\b`, "g");
+
+        if (finalCode.match(regex)) 
           {
           let replaceText = "this.state." + key;
-          finalCode = finalCode.replaceAll(key,replaceText);
+          finalCode = finalCode.replace(regex, replaceText);
 
-          let bindingKey = key;
-
-          if(bindingKey.includes('.'))
-            {
-            bindingKey = bindingKey.split('.')[0];
-            }
-
+          let bindingKey = key.includes('.') ? key.split('.')[0] : key;
           localBindingKeys.push(bindingKey);
           }
         }
@@ -296,6 +321,11 @@ class yoyo
       {
       value = value.replaceAll("{{", "");
       value = value.replaceAll("}}", "");
+
+      if(this.actions[value])
+        {
+        return this.actions[value];
+        }
 
       if(!value.includes("return") && requireReturn)
         {
@@ -308,21 +338,26 @@ class yoyo
     LoadElementIntoDOM(element)
       {
       let newNode = element.targetNode.cloneNode();
-      if(element.binding)
+      if(element.bindings)
         {
-        let newBinding =
+        for(let i = 0; i < element.bindings.length; i++)
           {
-          element : newNode,
-          vElement : element,
-          bindingFunction : element.binding.binding,
-          triggerBinding : element.binding.triggerBinding || false 
-          }
+          let binding = element.bindings[i];
+          let newBinding =
+            {
+            element : newNode,
+            vElement : element,
+            bindingFunction : binding.binding,
+            triggerBinding : binding.triggerBinding || false,
+            bindingPath : binding.bindingPath
+            }
 
           this.ApplyBindings(newBinding);
-          for(let x = 0; x < element.binding.bindingKeys.length; x++)
+          for(let x = 0; x < binding.bindingKeys.length; x++)
             {
-            this.bindings[element.binding.bindingKeys[x]].push(newBinding);
+            this.bindings[binding.bindingKeys[x]].push(newBinding);
             }
+          }
         }
       
       if(element.children.length != 0)
@@ -347,10 +382,10 @@ class yoyo
             binding.element.onclick = binding.bindingFunction;
             break;
           case "change":
+            binding.element.value = String(this.GetStateValue(binding.bindingPath));
             binding.element.onchange = binding.bindingFunction;
-            binding.element.value = String(this.GetStateValue(binding.vElement.binding.bindingPath));
             break;
-            case "if":
+          case "if":
             binding.element.style.display = binding.bindingFunction() ? "block" : "none";
           }
         return;
@@ -382,21 +417,37 @@ class yoyo
       return(replacedText);
       }
 
+    GetStateValue(stateName)
+      {
+      let valuePath = stateName.split(".");
+      let returnValue = this.state[valuePath[0]];
+      for(let i = 1; i < valuePath.length; i++)
+        {
+        returnValue = returnValue[valuePath[i]];
+        }
+
+      returnValue = Array.isArray(returnValue) ? [...returnValue] : returnValue;
+      return returnValue;
+      }
+
     UpdateState(targetState, newValue)
       {
       let valuePath = targetState.split(".");
+      if(!(typeof(newValue) == 'function') && newValue)
+        {
+        //newValue = structuredClone(newValue);
+        newValue = JSON.parse(JSON.stringify(newValue));
+        }
 
       if(valuePath.length == 1)
         {
         if(!this.state[valuePath[0]])
           {
           this.state[valuePath[0]] = newValue;
-          this.UpdateBindings(valuePath[0]);
           }
         else if(this.state[valuePath[0]] != newValue)
           {
           this.state[valuePath[0]] = newValue;
-          this.UpdateBindings(valuePath[0]);
           }
         }
 
@@ -421,20 +472,25 @@ class yoyo
         updateState = updateState[valuePath[i]];
         }
 
-      this.state[valuePath[0]] = startState;
+      this.UpdateBindings(valuePath[0]);
+      this.UpdateTriggers(targetState);
       }
 
-    GetStateValue(stateName)
+    UpdateTriggers(targetState)
       {
-      let valuePath = stateName.split(".");
-      let returnValue = this.state[valuePath[0]];
-      for(let i = 1; i < valuePath.length; i++)
+      if(!this.pageData[this.currentPage])
         {
-        returnValue = returnValue[valuePath[i]];
+        return;
         }
 
-      returnValue = Array.isArray(returnValue) ? [...returnValue] : returnValue;
-      return returnValue;
+      let triggers = this.pageData[this.currentPage].triggers[targetState];
+      if(triggers)
+        {
+        for(let i = 0; i < triggers.length; i++)
+          {
+          triggers[i].apply(this);
+          }
+        }
       }
 
     UpdateBindings(stateValue) 
