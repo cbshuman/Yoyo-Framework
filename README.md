@@ -9,6 +9,9 @@ Also if you want to learn about how those larger frameworks work under the hood 
 You'll have to do quite a bit more work to get this running than you might be used to. This is meant to be very lightweight, which is part of the reason that the only dependancy is a single js file. The goal here is to try and return to simplicity.
 
 Here's an example of how to get started with yoyo: (you can by and large ignore the imports, they're other custom libraries I'm writing. I might include them in this repo as they do provide some nice utility)
+
+(Also the full context of this is here - https://github.com/cbshuman/ExpansiaPages ; It is more up to date and has better examples of how the framework is actually supposed to work)
+
 ```
 //mainScript.js
 
