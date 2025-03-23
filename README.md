@@ -145,3 +145,6 @@ If I get some time, I might add some more documentation on how this all should b
 
 Also creating a framework is probably easier than you think it is. I made this in about a week in the evening after I got off work, and I wasn't even that commited, this was part of a larger project. Give it a try if even just so you can learn how things work under the hood. 
 Feel free to use this as base, it's been put together purely for educational purposes as far as I'm concerned.
+
+Also read this book if you're interested in Javascript : [You Don't Know JS](https://github.com/getify/You-Dont-Know-JS)
+There's lots of bad JavaScript out there, and if more people read this book, there'd be less.
